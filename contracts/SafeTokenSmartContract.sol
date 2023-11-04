@@ -1,24 +1,40 @@
 // SPDX-License-Identifier: GPL-3.0
 
-pragma solidity >=0.7.0 <0.9.0;
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+pragma solidity >=0.8.0 <0.9.0;
+
+import "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract SafeTokenSmartContract {
 
-     using SafeMath for uint256;
+    using Math for uint256;
+    // Arithematical operations
+        function getAddition (uint256 x, uint256 y)internal pure returns(bool, uint256){
+            (bool overflowsAdd, uint256 resultAdd) =  Math.tryAdd(x, y );
+            return(overflowsAdd, resultAdd);
+    }
+        function getSubtraction(uint256 x, uint256 y)internal pure returns(bool, uint256){
+         (bool overflowsSub, uint256 resultSub) = Math.trySub(x, y );
+            return  ( overflowsSub, resultSub);
+    }
+    function getDivsion (uint256 x, uint256 y)internal pure returns(bool, uint256){
+             (bool overflowsDiv, uint256 resultDiv)= Math.tryDiv(x, y );
+              return (overflowsDiv, resultDiv);
+    }
+    function getMulDiv (uint256 x, uint256 y,uint256 z)internal pure returns(uint256){
+        
+            return  Math.mulDiv(x, y, z);
+    }
 
     // create user. User struct, mapping user address for easy access
 
     struct User {
         string name;
         address payable wallet;
-        uint256  tokens;
-        // uint256 rewards;
-        uint256 lokedTimestamp;
+        uint256  accruedRewards;
+        uint256 lockedTimestamp;
         uint256 unlockedTimeStamp;
-      
         bool locked;
-        
+       
     }
 
     mapping (address => User) public users;
@@ -29,15 +45,10 @@ contract SafeTokenSmartContract {
     event TokensDeposited(address indexed user, uint256 amount);
     event TokensUnlocked(address indexed user,bool);
     // event AccruedRewards(address indexed user, uint256 amount);
-
-       address private owner;
-
-    constructor() {
-        owner = msg.sender;
-    }
-
+    
    modifier onlyOwner() {
-        require(msg.sender == owner, "Only owner can call this function");
+     User storage currentUser = users[msg.sender];
+        require(msg.sender == currentUser.wallet, "Only owner can call this function");
         _;
     }
 
@@ -54,21 +65,28 @@ contract SafeTokenSmartContract {
           hasAccount[msg.sender] = true;
       
     }
+    
 
-    // all tokens will remain locked for a max period of 1 year. if unlocked before
-    //  a year gets completed, they daily rewards will be calculated
-    // if 1 year, and user does not unclock tokens, will automatically unlock the tokens
 
-    function depositTokensAndLock(uint256 _tokens) external onlyOwner {
-        require(hasAccount[msg.sender], "Create Account to continue");
-        User storage currentUser = users[msg.sender];
-        require( !currentUser.locked, "Unlock tokens");
-        require(_tokens >= 100, "Minimum deposit requirement is 100 tokens");
-         currentUser.tokens += _tokens;
-        currentUser.lokedTimestamp=block.timestamp;
-         emit TokensDeposited(msg.sender, _tokens);
+        function depositEarnest() public payable onlyOwner{
+            require(hasAccount[msg.sender], "Create Account to continue");
+            User storage currentUser = users[msg.sender];
+            require( !currentUser.locked, "Unlock tokens");
+            require(msg.value + address(this).balance >= 10, " Amount Needs to be equal or more than 10" );
+            currentUser.lockedTimestamp=block.timestamp;
+            emit TokensDeposited(msg.sender, address(this).balance);
+}
 
-    }
+    // function depositTokensAndLock(uint256 _tokens) external onlyOwner {
+       
+    //     // require(_tokens >= 100, "Minimum deposit requirement is 100 tokens");
+    //     // (bool overflowsAdddepositTokensAndLock1, uint256 resultAdd) =getAddition( currentUser.tokens, _tokens);
+    //     // require(!overflowsAdddepositTokensAndLock1, "Due to Overflow in overflowsAdddepositTokensAndLock1, we cant proceed with the Opeartion");
+    //     // currentUser.tokens =resultAdd;
+    //     currentUser.lockedTimestamp=block.timestamp;
+    //      emit TokensDeposited(msg.sender, _tokens);
+
+    // }
 
     // lock and unlock tokens
 
@@ -77,19 +95,22 @@ contract SafeTokenSmartContract {
           if(_lock && !currentUser.locked){
     
             currentUser.locked =_lock;
-            currentUser.lokedTimestamp=block.timestamp;
+            currentUser.lockedTimestamp=block.timestamp;
             currentUser.unlockedTimeStamp=0;
 
           }else if(!_lock && currentUser.locked){
-            currentUser.locked = _lock;
-            currentUser.unlockedTimeStamp = block.timestamp;
+           
+            // currentUser.unlockedTimeStamp = block.timestamp;
            
             // calculate rewards and add them to tokens
                uint256 rewards = showUserRewards();
         
             // Add rewards to tokens
-            currentUser.tokens += rewards;
-             
+            (bool overflowsAddTokens, uint256 resultAdd) =getAddition( currentUser.accruedRewards, rewards);
+            require(!overflowsAddTokens, "Due to Overflow in overflowsAddTokens, we cant proceed with the Opeartion");
+            currentUser.accruedRewards = resultAdd;
+            currentUser.unlockedTimeStamp = block.timestamp;
+              currentUser.locked = _lock;
           }
         emit TokensUnlocked(msg.sender, currentUser.locked);
 
@@ -110,22 +131,35 @@ contract SafeTokenSmartContract {
         
         }
  
-    uint256 secondsInDay = 86400; // Number of seconds in a day (24 hours * 60 minutes * 60 seconds)
-        
-            uint256 numberOfDays = (currentunlockedTimeStamp - currentUser.lokedTimestamp) / secondsInDay;
+    // uint256 secondsInDay = 86400; 
+  (bool overflowsSub, uint256 resultSub) =getSubtraction(currentunlockedTimeStamp, currentUser.lockedTimestamp);
+  require(!overflowsSub, "Due to OvoverflowsSubshowUserRewards erflow, we cant proceed with the Opeartion");
+//   require(resultSub > 86400, 'Atleast Lock your Rewards for 24 hrs'); 
+  if(resultSub > 86400)   {
+    (bool overflowsDivShowUserRewards, uint256 resultDiv)=getDivsion(resultSub, 86400);// Number of seconds in a day (24 hours * 60 minutes * 60 seconds)
+     require(!overflowsDivShowUserRewards, "Due to Overflow in overflowsDivShowUserRewards, we cant proceed with the Opeartion");
+    uint256 numberOfDays = resultDiv;
             
-       uint256 totalAmount = currentUser.tokens;
+       uint256 totalAmount = address(this).balance;
       uint256 rewards = 0;
         for (uint256 i = 0; i < numberOfDays; i++) {
             // Calculate interest for the current day 1%
-          uint256 interest = totalAmount.mul(1e16).div(1e18); // 1% of totalAmount in wei
-        totalAmount = totalAmount.add(interest);
-        rewards = rewards.add(interest);
+          uint256 interest =getMulDiv(totalAmount, (1e16), (1e18)); // 1% of totalAmount in wei
+          (bool overflowsAddShowUserRewards, uint256 resultAdd) =getAddition( totalAmount, interest);
+        require(!overflowsAddShowUserRewards, "Due to Overflow in overflowsAddShowUserRewards, we cant proceed with the Opeartion");
+
+        totalAmount =resultAdd; 
+        (bool overflowsAdd2, uint256 resultAdd2) =getAddition(rewards, interest);
+        require(!overflowsAdd2, "Due to Overflow, we cant proceed with the Opeartion");
+        rewards =resultAdd2;
         }
    
     // emit AccruedRewards(msg.sender, rewards);
     return rewards;
 
+  }
+  return 0;
+    
 
     }
 
