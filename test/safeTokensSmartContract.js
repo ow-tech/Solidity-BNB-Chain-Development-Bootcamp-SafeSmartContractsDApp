@@ -22,11 +22,11 @@ describe("SafeTokenSmartContract", () => {
   });
 
   it("should allow users to create an account", async () => {
-    const tx = await contract.createNewUser("Alice");
+    const tx = await contract.createNewUser();
     await tx.wait();
 
     const user = await contract.users(owner.address);
-    expect(user.name).to.equal("Alice");
+   
     expect(user.wallet).to.equal(owner.address);
     expect(user.accruedRewards).to.equal(0);
     expect(user.lockedTimestamp).to.equal(0);
@@ -36,7 +36,7 @@ describe("SafeTokenSmartContract", () => {
 
   it("should allow users to deposit tokens", async () => {
     let balance;
-    await contract.createNewUser("Alice");
+    await contract.createNewUser();
 
     const depositAmount = ethers.parseEther("100");
     const tx = await contract
@@ -53,7 +53,7 @@ describe("SafeTokenSmartContract", () => {
   });
 
   it("should allow users to unlock tokens and calculate rewards", async () => {
-      await contract.createNewUser("Alice");
+      await contract.createNewUser();
       const depositAmount = ethers.parseEther("100");
       await contract.connect(owner).depositEarnest({value:depositAmount});
       let user;
@@ -69,15 +69,20 @@ describe("SafeTokenSmartContract", () => {
       user = await contract.users(owner.address);
       expect(user.locked).to.be.true;
       console.log('user :', user)
+
+       // Wait for 10 minutes (35555 milliseconds) before proceeding to the next transaction
+// await new Promise(resolve => setTimeout(resolve, 35555));
+
+
       const un_lockTx = await contract.connect(owner).lockAndUnlock(false);
      
       await un_lockTx.wait();
 
-    //   user = await contract.users(owner.address);
-    //   console.log(user)
-    //   expect(user.locked).to.be.false;
+      user = await contract.users(owner.address);
+      console.log(user)
+      expect(user.locked).to.be.false;
 
-    //   const rewards = await contract.connect(owner).showUserRewards();
-    //   console.log("Accrued rewards: ", ethers.formatEther(rewards));
+      const rewards = await contract.connect(owner).showUserRewards();
+      console.log("Accrued rewards: ", ethers.formatEther(rewards));
   });
 });

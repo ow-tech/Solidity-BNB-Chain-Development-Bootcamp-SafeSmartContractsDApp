@@ -28,7 +28,6 @@ contract SafeTokenSmartContract {
     // create user. User struct, mapping user address for easy access
 
     struct User {
-        string name;
         address payable wallet;
         uint256  accruedRewards;
         uint256 lockedTimestamp;
@@ -55,11 +54,11 @@ contract SafeTokenSmartContract {
  
 
 
-    function createNewUser(string memory _name) external {
+    function createNewUser() external {
         // check if user already exists
         require(!hasAccount[msg.sender], "User already has an account");
 
-        User memory newUser =User(_name, payable(msg.sender),0 wei, 0 ,0,false);
+        User memory newUser =User( payable(msg.sender),0 wei, 0 ,0,false);
         users[msg.sender] = newUser;
         userAddresses.push(msg.sender);
           hasAccount[msg.sender] = true;
@@ -77,20 +76,10 @@ contract SafeTokenSmartContract {
             emit TokensDeposited(msg.sender, address(this).balance);
 }
 
-    // function depositTokensAndLock(uint256 _tokens) external onlyOwner {
-       
-    //     // require(_tokens >= 100, "Minimum deposit requirement is 100 tokens");
-    //     // (bool overflowsAdddepositTokensAndLock1, uint256 resultAdd) =getAddition( currentUser.tokens, _tokens);
-    //     // require(!overflowsAdddepositTokensAndLock1, "Due to Overflow in overflowsAdddepositTokensAndLock1, we cant proceed with the Opeartion");
-    //     // currentUser.tokens =resultAdd;
-    //     currentUser.lockedTimestamp=block.timestamp;
-    //      emit TokensDeposited(msg.sender, _tokens);
-
-    // }
-
-    // lock and unlock tokens
+   
 
     function lockAndUnlock(bool _lock) external onlyOwner {
+             require(hasAccount[msg.sender], "Create Account to continue");
         User storage currentUser = users[msg.sender];
           if(_lock && !currentUser.locked){
     
@@ -107,7 +96,7 @@ contract SafeTokenSmartContract {
         
             // Add rewards to tokens
             (bool overflowsAddTokens, uint256 resultAdd) =getAddition( currentUser.accruedRewards, rewards);
-            require(!overflowsAddTokens, "Due to Overflow in overflowsAddTokens, we cant proceed with the Opeartion");
+        
             currentUser.accruedRewards = resultAdd;
             currentUser.unlockedTimeStamp = block.timestamp;
               currentUser.locked = _lock;
@@ -119,6 +108,7 @@ contract SafeTokenSmartContract {
     // calculate Rewards
 
     function showUserRewards() public view returns(uint256){
+             require(hasAccount[msg.sender], "Create Account to continue");
        User memory currentUser = users[msg.sender];
 
         uint256 currentunlockedTimeStamp;
@@ -130,27 +120,26 @@ contract SafeTokenSmartContract {
             currentunlockedTimeStamp = currentUser.unlockedTimeStamp;
         
         }
- 
+  
     // uint256 secondsInDay = 86400; 
   (bool overflowsSub, uint256 resultSub) =getSubtraction(currentunlockedTimeStamp, currentUser.lockedTimestamp);
-  require(!overflowsSub, "Due to OvoverflowsSubshowUserRewards erflow, we cant proceed with the Opeartion");
-//   require(resultSub > 86400, 'Atleast Lock your Rewards for 24 hrs'); 
+
   if(resultSub > 86400)   {
     (bool overflowsDivShowUserRewards, uint256 resultDiv)=getDivsion(resultSub, 86400);// Number of seconds in a day (24 hours * 60 minutes * 60 seconds)
-     require(!overflowsDivShowUserRewards, "Due to Overflow in overflowsDivShowUserRewards, we cant proceed with the Opeartion");
+    
     uint256 numberOfDays = resultDiv;
             
        uint256 totalAmount = address(this).balance;
       uint256 rewards = 0;
         for (uint256 i = 0; i < numberOfDays; i++) {
-            // Calculate interest for the current day 1%
+         
           uint256 interest =getMulDiv(totalAmount, (1e16), (1e18)); // 1% of totalAmount in wei
           (bool overflowsAddShowUserRewards, uint256 resultAdd) =getAddition( totalAmount, interest);
-        require(!overflowsAddShowUserRewards, "Due to Overflow in overflowsAddShowUserRewards, we cant proceed with the Opeartion");
+
 
         totalAmount =resultAdd; 
         (bool overflowsAdd2, uint256 resultAdd2) =getAddition(rewards, interest);
-        require(!overflowsAdd2, "Due to Overflow, we cant proceed with the Opeartion");
+
         rewards =resultAdd2;
         }
    
@@ -160,7 +149,6 @@ contract SafeTokenSmartContract {
   }
   return 0;
     
-
     }
 
     function getAllUsers() view public returns(User[] memory){
