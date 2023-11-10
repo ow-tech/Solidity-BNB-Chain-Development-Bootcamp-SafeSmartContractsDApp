@@ -6,6 +6,8 @@ import "@openzeppelin/contracts/utils/math/Math.sol";
 
 contract SafeTokenSmartContract {
 
+  address private owner;
+
     using Math for uint256;
     // Arithematical operations
         function getAddition (uint256 x, uint256 y)internal pure returns(bool, uint256){
@@ -36,6 +38,10 @@ contract SafeTokenSmartContract {
        
     }
 
+    constructor (){
+      owner = msg.sender;
+    }
+
     mapping (address => User) public users;
     mapping (address => bool) public hasAccount;
     address[] public userAddresses;
@@ -46,8 +52,8 @@ contract SafeTokenSmartContract {
     // event AccruedRewards(address indexed user, uint256 amount);
     
    modifier onlyOwner() {
-     User storage currentUser = users[msg.sender];
-        require(msg.sender == currentUser.wallet, "Only owner can call this function");
+
+        require(msg.sender ==owner, "Only owner can call this function");
         _;
     }
 
@@ -151,7 +157,7 @@ contract SafeTokenSmartContract {
     
     }
 
-    function getAllUsers() view public returns(User[] memory){
+    function getAllUsers()  public view returns(User[] memory){
          uint256 numberOfUsers = userAddresses.length;
          User[] memory allUsers = new User[](numberOfUsers);
 
