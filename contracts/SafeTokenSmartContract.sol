@@ -51,9 +51,10 @@ contract SafeTokenSmartContract {
     event TokensUnlocked(address indexed user,bool);
     // event AccruedRewards(address indexed user, uint256 amount);
     
-   modifier onlyOwner() {
-
-        require(msg.sender ==owner, "Only owner can call this function");
+   modifier onlyCurrentUserAndHasAccount() {
+    User storage currentUser = users[msg.sender];
+        require(hasAccount[msg.sender], "Caller must have an account");
+        require(msg.sender == owner || msg.sender == currentUser.wallet, "Not authorized to call this function");
         _;
     }
 
@@ -73,7 +74,7 @@ contract SafeTokenSmartContract {
     
 
 
-        function depositEarnest() public payable onlyOwner{
+        function depositEarnest() public payable onlyCurrentUserAndHasAccount{
             require(hasAccount[msg.sender], "Create Account to continue");
             User storage currentUser = users[msg.sender];
             require( !currentUser.locked, "Unlock tokens");
@@ -84,7 +85,7 @@ contract SafeTokenSmartContract {
 
    
 
-    function lockAndUnlock(bool _lock) external onlyOwner {
+    function lockAndUnlock(bool _lock) external onlyCurrentUserAndHasAccount {
              require(hasAccount[msg.sender], "Create Account to continue");
         User storage currentUser = users[msg.sender];
           if(_lock && !currentUser.locked){
