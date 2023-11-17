@@ -51,6 +51,11 @@ contract SafeTokenSmartContract {
     event TokensUnlocked(address indexed user,bool);
     // event AccruedRewards(address indexed user, uint256 amount);
     
+   modifier onlyOwner () {
+    require(msg.sender ==owner, "Only Owner can call this method");
+     _;
+   }
+
    modifier onlyCurrentUserAndHasAccount() {
     User storage currentUser = users[msg.sender];
         require(hasAccount[msg.sender], "Caller must have an account");
@@ -74,20 +79,30 @@ contract SafeTokenSmartContract {
     
 
 
-        function depositEarnest() public payable onlyCurrentUserAndHasAccount{
+        function depositEarnest() external payable onlyCurrentUserAndHasAccount{
             require(hasAccount[msg.sender], "Create Account to continue");
+              require(msg.value >0, "Tokens need to be more than 0");
             User storage currentUser = users[msg.sender];
             require( !currentUser.locked, "Unlock tokens");
             
             currentUser.lockedTimestamp=block.timestamp;
-            emit TokensDeposited(msg.sender, address(this).balance);
+             
+           currentUser.accruedRewards += msg.value;
+            emit TokensDeposited(msg.sender,msg.value );         
 }
+
+    // Fallback function to receive ether
+    receive() external payable {
+        emit TokensDeposited(msg.sender, msg.value);
+    }
 
    
 
     function lockAndUnlock(bool _lock) external onlyCurrentUserAndHasAccount {
              require(hasAccount[msg.sender], "Create Account to continue");
+           
         User storage currentUser = users[msg.sender];
+            require(currentUser.accruedRewards >0, "Tokens need to be more than 0 to Lock");
           if(_lock && !currentUser.locked){
     
             currentUser.locked =_lock;
@@ -136,7 +151,7 @@ contract SafeTokenSmartContract {
     
     uint256 numberOfDays = resultDiv;
             
-       uint256 totalAmount = address(this).balance;
+       uint256 totalAmount = currentUser.accruedRewards;
       uint256 rewards = 0;
         for (uint256 i = 0; i < numberOfDays; i++) {
          
@@ -158,7 +173,7 @@ contract SafeTokenSmartContract {
     
     }
 
-    function getAllUsers()  public view returns(User[] memory){
+    function getAllUsers()  public view  returns(User[] memory) {
          uint256 numberOfUsers = userAddresses.length;
          User[] memory allUsers = new User[](numberOfUsers);
 
@@ -168,4 +183,10 @@ contract SafeTokenSmartContract {
          }
         return allUsers;
     }
+
+    function getContractBalance() public view  returns(uint256) {
+      return address(this).balance;
+    }
+
+
 }
