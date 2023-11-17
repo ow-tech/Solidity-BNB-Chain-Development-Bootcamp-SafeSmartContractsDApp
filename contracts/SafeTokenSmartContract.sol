@@ -78,7 +78,7 @@ contract SafeTokenSmartContract {
             require(hasAccount[msg.sender], "Create Account to continue");
             User storage currentUser = users[msg.sender];
             require( !currentUser.locked, "Unlock tokens");
-            require(msg.value + address(this).balance >= 10, " Amount Needs to be equal or more than 10" );
+            
             currentUser.lockedTimestamp=block.timestamp;
             emit TokensDeposited(msg.sender, address(this).balance);
 }
