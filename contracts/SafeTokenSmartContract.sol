@@ -3,10 +3,29 @@
 pragma solidity >=0.8.0 <0.9.0;
 
 import "@openzeppelin/contracts/utils/math/Math.sol";
+// import "contracts/IERC20.sol";
+import "https://github.com/OpenZeppelin/openzeppelin-contracts/blob/v4.0.0/contracts/token/ERC20/IERC20.sol";
 
-contract SafeTokenSmartContract {
+
+
+
+//ERC Token Standard #20 Interface
+
+
+
+contract SafeTokenSmartContract  {
+  IERC20 public token;
+   
 
   address private owner;
+   constructor(
+       
+   
+    ) {
+        owner =msg.sender;
+       
+    }
+
 
     using Math for uint256;
     // Arithematical operations
@@ -38,9 +57,7 @@ contract SafeTokenSmartContract {
        
     }
 
-    constructor (){
-      owner = msg.sender;
-    }
+    
 
     mapping (address => User) public users;
     mapping (address => bool) public hasAccount;
@@ -76,21 +93,47 @@ contract SafeTokenSmartContract {
           hasAccount[msg.sender] = true;
       
     }
+
     
-
-
-        function depositEarnest() external payable onlyCurrentUserAndHasAccount{
+        function depositEarnest(uint256 amount) external payable onlyCurrentUserAndHasAccount{
             require(hasAccount[msg.sender], "Create Account to continue");
-              require(msg.value >0, "Tokens need to be more than 0");
+            // require(msg.value >0, "Tokens need to be more than 0");
             User storage currentUser = users[msg.sender];
             require( !currentUser.locked, "Unlock tokens");
-            
+            bool sent = token.transferFrom(msg.sender, address(this), amount);
+              require(sent, "Token transfer failed");
             currentUser.lockedTimestamp=block.timestamp;
              
            currentUser.accruedRewards += msg.value;
             emit TokensDeposited(msg.sender,msg.value );         
 }
 
+       function depositEarnestV2() external payable onlyCurrentUserAndHasAccount{
+            require(hasAccount[msg.sender], "Create Account to continue");
+            // require(msg.value >0, "Tokens need to be more than 0");
+            User storage currentUser = users[msg.sender];
+            require( !currentUser.locked, "Unlock tokens");
+            bool sent = token.transferFrom(msg.sender, address(this), msg.value);
+              require(sent, "Token transfer failed");
+            currentUser.lockedTimestamp=block.timestamp;
+             
+           currentUser.accruedRewards += msg.value;
+            emit TokensDeposited(msg.sender,msg.value );         
+}
+        function depositEarnestTransferTo(address _to, uint256 amount) external payable onlyCurrentUserAndHasAccount{
+            require(hasAccount[msg.sender], "Create Account to continue");
+            // require(msg.value >0, "Tokens need to be more than 0");
+            User storage currentUser = users[msg.sender];
+            require( !currentUser.locked, "Unlock tokens");
+            bool sent = token.transfer(_to, amount);
+              require(sent, "Token transfer failed");
+            currentUser.lockedTimestamp=block.timestamp;
+             
+           currentUser.accruedRewards += amount;
+            emit TokensDeposited(msg.sender,amount );         
+}
+
+ 
     // Fallback function to receive ether
     receive() external payable {
         emit TokensDeposited(msg.sender, msg.value);
