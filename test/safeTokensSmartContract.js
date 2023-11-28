@@ -1,88 +1,81 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
-// const SafeTokenSmartContract = require("../artifacts/contracts/SafeTokenSmartContract.sol/SafeTokenSmartContract.json");
+const etherTokens = (n) => {
+  return ethers.parseUnits(n.toString(), "ether");
+};
 
-describe("SafeTokenSmartContract", () => {
+describe("SafeTokenSmartContract", function () {
   let SafeTokenSmartContract;
+  let safeToken;
   let owner;
-  let user;
+  let addr1; // address to represent a user
 
-  beforeEach(async () => {
-    accounts = await ethers.getSigners();
-    owner = accounts[0];
-    user = accounts[1];
-
+  beforeEach(async function () {
     SafeTokenSmartContract = await ethers.getContractFactory(
       "SafeTokenSmartContract"
     );
-
-    // deploy contracts
-    contract = await SafeTokenSmartContract.deploy();
+    [owner, addr1] = await ethers.getSigners();
+    safeToken = await SafeTokenSmartContract.deploy();
   });
 
-  it("should allow users to create an account", async () => {
-    const tx = await contract.createNewUser();
-    await tx.wait();
+  it("Should lock tokens and calculate rewards", async function () {
+    const initialBalance = await safeToken.balanceOf(owner.address);
+    let depositAmount = etherTokens(1);
+    await safeToken.lockTokens(100000000000000);
+    const stakedBalance = await safeToken.staked(owner.address);
+    const rewardsBalance = await safeToken.rewards(owner.address);
+    expect(stakedBalance).to.equal(100000000000000);
+    expect(rewardsBalance).to.equal(0); // No rewards immediately after locking
 
-    const user = await contract.users(owner.address);
-   
-    expect(user.wallet).to.equal(owner.address);
-    expect(user.accruedRewards).to.equal(0);
-    expect(user.lockedTimestamp).to.equal(0);
-    expect(user.unlockedTimeStamp).to.equal(0);
-    expect(user.locked).to.be.false;
+    // Advance time by 1 day
+    await ethers.provider.send("evm_increaseTime", [24 * 60 * 60 * 4]);
+
+    const initialRewards = await safeToken.calculateReward();
+    // Advance time by 1 year
+    await ethers.provider.send("evm_increaseTime", [60 * 60 * 24 * 365 * 4]);
+
+    const finalRewards = await safeToken.calculateReward();
+    expect(finalRewards).to.be.above(initialRewards); // Rewards should increase over time
+    expect(finalRewards).to.be.above(0); // Ensure final rewards are above 0
   });
 
-  it("should allow users to deposit tokens", async () => {
-    let balance;
-    await contract.createNewUser();
+  it("Should not allow unlocking more than staked amount", async function () {
+    await safeToken.lockTokens(100);
 
-    const depositAmount = ethers.parseEther("100");
-    const tx = await contract
-      .connect(owner)
-      .depositEarnest({ value: depositAmount });
-    await tx.wait();
-    balance = await ethers.provider.getBalance(contract.target);
-
-    const user = await contract.users(owner.address);
-
-    expect(balance).to.equal(depositAmount);
-    expect(user.locked).to.be.false;
-    expect(user.lockedTimestamp).to.not.equal(0);
+    await expect(safeToken.unLockTokens(150)).to.be.revertedWith(
+      "amount is > staked"
+    );
   });
 
-  it("should allow users to unlock tokens and calculate rewards", async () => {
-      await contract.createNewUser();
-      const depositAmount = ethers.parseEther("100");
-      await contract.connect(owner).depositEarnest({value:depositAmount});
-      let user;
-      const unlockTx = await contract.connect(owner).lockAndUnlock(false);
-      await unlockTx.wait();
+  it("Should not allow locking 0 tokens", async function () {
+    await expect(safeToken.lockTokens(0)).to.be.revertedWith("amount is <= 0");
+  });
 
-      user = await contract.users(owner.address);
-      expect(user.locked).to.be.false;
+  it("Should not allow unlocking 0 tokens", async function () {
+    await expect(safeToken.unLockTokens(0)).to.be.revertedWith(
+      "amount is <= 0"
+    );
+  });
 
-      
-      const lockTx = await contract.connect(owner).lockAndUnlock(true);
-      await lockTx.wait();
-      user = await contract.users(owner.address);
-      expect(user.locked).to.be.true;
-      console.log('user :', user)
+  it("Should not allow unlocking without staking", async function () {
+    await expect(safeToken.unLockTokens(50)).to.be.revertedWith(
+      "amount is > staked"
+    );
+  });
 
-       // Wait for 10 minutes (35555 milliseconds) before proceeding to the next transaction
-// await new Promise(resolve => setTimeout(resolve, 35555));
+  it("Should calculate rewards correctly", async function () {
+    await safeToken.lockTokens(100000000000000);
 
+    // Advance time by 1 day
+    await ethers.provider.send("evm_increaseTime", [24 * 60 * 60]);
 
-      const un_lockTx = await contract.connect(owner).lockAndUnlock(false);
-     
-      await un_lockTx.wait();
+    const initialRewards = await safeToken.calculateReward();
 
-      user = await contract.users(owner.address);
-      console.log(user)
-      expect(user.locked).to.be.false;
+    // Advance time by 10 year
+    await ethers.provider.send("evm_increaseTime", [60 * 60 * 24 * 365*365]);
 
-      const rewards = await contract.connect(owner).showUserRewards();
-      console.log("Accrued rewards: ", ethers.formatEther(rewards));
+    const finalRewards = await safeToken.calculateReward();
+    expect(finalRewards).to.be.above(initialRewards); // Rewards should increase over time
   });
 });
