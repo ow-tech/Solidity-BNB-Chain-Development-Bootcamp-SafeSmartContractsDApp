@@ -8,6 +8,9 @@ contract SafeTokenSmartContract is ERC20 {
     mapping(address => uint256) public staked;
     mapping(address => uint256) private stakedFromTS;
     mapping(address => uint256) public rewards;
+
+    // Event declaration for emitting rewards
+    event RewardClaimed(address indexed user, uint256 amount);
     
     constructor() ERC20("Fixed Staking", "FIX") {
         _mint(msg.sender,1000000000000000000);
@@ -19,8 +22,7 @@ contract SafeTokenSmartContract is ERC20 {
         require(balanceOf(msg.sender) >= amount, "balance is <= amount");
         _transfer(msg.sender, address(this), amount);
         if (staked[msg.sender] > 0) {
-            uint256 secondsStaked = block.timestamp - stakedFromTS[msg.sender];
-           rewards[msg.sender]+=staked[msg.sender] * secondsStaked / 3.154e7;
+        calculateReward();
         }
         stakedFromTS[msg.sender] = block.timestamp;
         staked[msg.sender] += amount;
@@ -29,18 +31,20 @@ contract SafeTokenSmartContract is ERC20 {
     function unLockTokens(uint256 amount) external {
         require(amount > 0, "amount is <= 0");
         require(staked[msg.sender] >= amount, "amount is > staked");
-          uint256 secondsStaked = block.timestamp - stakedFromTS[msg.sender];
-        rewards[msg.sender]+=staked[msg.sender] * secondsStaked / 3.154e7;
+          calculateReward();
         staked[msg.sender] -= amount;
          stakedFromTS[msg.sender] = block.timestamp;
         _transfer(address(this), msg.sender, amount);
     }
 
-    function calculateReward() public view returns(uint256) {
+    function calculateReward() public {
         require(staked[msg.sender] > 0, "staked is <= 0");
         uint256 secondsStaked = block.timestamp - stakedFromTS[msg.sender];
-        uint256 currentRewards = rewards[msg.sender]+ staked[msg.sender] * secondsStaked / 3.154e7;
-        return currentRewards;
+      rewards[msg.sender]+= staked[msg.sender] * secondsStaked / 3.154e7;
+      stakedFromTS[msg.sender] = block.timestamp;
+        // Emit the reward event
+        emit RewardClaimed(msg.sender, rewards[msg.sender]);
+       
     }
 
 }
