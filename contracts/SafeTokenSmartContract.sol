@@ -1,32 +1,39 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.15;
 
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-contract SafeTokenSmartContract is ERC20 {
+contract SafeTokenSmartContract is ReentrancyGuard  {
 
+    IERC20 public stakingToken;
+    // IERC20 public rewardToken;
+
+    
+    
     mapping(address => uint256) public staked;
     mapping(address => uint256) private stakedFromTS;
     mapping(address => uint256) public rewards;
-
-    // Event declaration for emitting rewards
-    event RewardClaimed(address indexed user, uint256 amount);
     
-    constructor() ERC20("Fixed Staking", "FIX") {
-        _mint(msg.sender,1000000000000000000);
+    event Staked(address indexed user, uint256 indexed amount);
+    event RewardsClaimed(address indexed user, uint256 indexed amount);
+
+    constructor(address _stakingToken) {
+        stakingToken = IERC20(_stakingToken);
+        // rewardToken = IERC20(_rewardToken);
     }
 
-// for every staked tokens earns 1 token after a year
-    function lockTokens(uint256 amount) external {
-        require(amount > 0, "amount is <= 0");
-        require(balanceOf(msg.sender) >= amount, "balance is <= amount");
-        _transfer(msg.sender, address(this), amount);
-        if (staked[msg.sender] > 0) {
+
+      function lockTokens(uint256 amount) external payable {
+    require(amount > 0, "amount is <= 0");
+    bool success = stakingToken.transferFrom(msg.sender, address(this), amount);
+    if (staked[msg.sender] > 0) {
         calculateReward();
-        }
-        stakedFromTS[msg.sender] = block.timestamp;
-        staked[msg.sender] += amount;
     }
+    stakedFromTS[msg.sender] = block.timestamp;
+    staked[msg.sender] += amount;
+    require(success, "Transfer failed");
+}
 
     function unLockTokens(uint256 amount) external {
         require(amount > 0, "amount is <= 0");
@@ -34,17 +41,19 @@ contract SafeTokenSmartContract is ERC20 {
           calculateReward();
         staked[msg.sender] -= amount;
          stakedFromTS[msg.sender] = block.timestamp;
-        _transfer(address(this), msg.sender, amount);
+         bool success = stakingToken.transfer( msg.sender, amount);
+          require(success, "Transfer failed");
     }
 
     function calculateReward() public {
         require(staked[msg.sender] > 0, "staked is <= 0");
         uint256 secondsStaked = block.timestamp - stakedFromTS[msg.sender];
-      rewards[msg.sender]+= staked[msg.sender] * secondsStaked / 3.154e7;
+      rewards[msg.sender]+= staked[msg.sender] * secondsStaked /10;
       stakedFromTS[msg.sender] = block.timestamp;
-        // Emit the reward event
-        emit RewardClaimed(msg.sender, rewards[msg.sender]);
+     emit RewardsClaimed (msg.sender,rewards[msg.sender] );
        
     }
+
+}
 
 }
